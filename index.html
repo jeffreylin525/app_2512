@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>地政士案件進度 (Mac/Win/Mobile 通用終極版 v11)</title>
+    <title>地政士案件進度 (Mac/Win/Mobile 通用終極版 v12)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
@@ -73,14 +73,15 @@
             background: transparent; margin-top: 2px; outline: none;
         }
 
-        /* --- 日期選擇區 (修正版) --- */
+        /* --- 日期選擇區 (iPhone Chrome 優化版) --- */
         .date-box {
             margin-top: 6px; text-align: right; position: relative;
             align-self: flex-end; 
             background: #f9f9f9; padding: 6px 12px; border-radius: 6px;
-            cursor: pointer; 
             transition: background 0.2s;
             display: flex; align-items: center; justify-content: flex-end;
+            /* 關鍵:避免觸控事件穿透問題 */
+            touch-action: manipulation;
         }
         .date-box:hover { background: #eee; }
 
@@ -93,7 +94,7 @@
         }
         .date-text.has-val { color: #333; font-weight: 500; }
         
-        /* ★★★ 關鍵修正:讓 input 完全覆蓋且可點擊 ★★★ */
+        /* ★★★ iPhone Chrome 閃爍修正版 ★★★ */
         .date-input {
             position: absolute; 
             left: 0; top: 0; 
@@ -102,10 +103,12 @@
             cursor: pointer; 
             margin: 0; padding: 0;
             z-index: 2;
-            /* 移除 pointer-events: none,讓所有裝置都能正常點擊 */
+            /* 防止 iOS 上的焦點問題 */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
-        /* 針對 Webkit 瀏覽器的日曆圖標也設置 cursor */
+        /* Webkit 日曆圖標優化 */
         .date-input::-webkit-calendar-picker-indicator {
             position: absolute;
             left: 0; top: 0;
@@ -151,7 +154,7 @@
 
 <script>
 (function() {
-    var DATA_KEY = 'estate_v11_fixed';
+    var DATA_KEY = 'estate_v12_mobile_fix';
     
     var defaultStructure = [
         { t: '簽約', type: 'main' },
@@ -190,6 +193,8 @@
             resetItems();
         }
         render();
+        // ★★★ 關鍵修正:延遲綁定事件處理器,避免 iOS 初始化問題 ★★★
+        setTimeout(attachDateInputHandlers, 100);
     }
 
     function resetItems() {
@@ -211,6 +216,34 @@
             msg.innerText = "✓ 資料已自動儲存";
             setTimeout(function(){ msg.innerText = ""; }, 2000);
         } catch(e) {}
+    }
+
+    // ★★★ 新增:iPhone Chrome 閃爍問題修正函數 ★★★
+    function attachDateInputHandlers() {
+        var dateInputs = document.querySelectorAll('.date-input');
+        
+        for (var i = 0; i < dateInputs.length; i++) {
+            (function(input) {
+                // 使用 touchstart 而非 click,解決 iOS 焦點問題
+                input.addEventListener('touchstart', function(e) {
+                    e.stopPropagation();
+                    // 確保 input 獲得焦點
+                    setTimeout(function() {
+                        input.focus();
+                    }, 10);
+                }, { passive: true });
+
+                // 防止 blur 事件導致選單關閉
+                input.addEventListener('blur', function(e) {
+                    // 如果正在選擇日期,延遲 blur 處理
+                    setTimeout(function() {
+                        if (document.activeElement !== input) {
+                            // blur 處理邏輯(如果需要)
+                        }
+                    }, 100);
+                });
+            })(dateInputs[i]);
+        }
     }
 
     window.render = function() {
@@ -242,10 +275,9 @@
                     '<input class="title-input" value="' + item.t + '" oninput="updateTitle(' + i + ', this.value)">' +
                     '<input class="sub-note" placeholder="備註..." value="' + (item.s || '') + '" oninput="updateSub(' + i + ', this.value)">' +
                     
-                    // 日期區塊:移除 onclick,讓 input 自然接收點擊
                     '<div class="date-box">' +
                         '<span class="date-text ' + dateClass + '">' + dateText + '</span>' +
-                        '<input type="date" id="date-input-' + i + '" class="date-input" value="' + item.d + '" onchange="updateDate(' + i + ', this.value)">' +
+                        '<input type="date" class="date-input" value="' + item.d + '" onchange="updateDate(' + i + ', this.value)">' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -253,6 +285,9 @@
         
         html += '</div>';
         container.innerHTML = html;
+        
+        // 每次 render 後重新綁定事件
+        attachDateInputHandlers();
     };
 
     window.toggle = function(i) { items[i].ok = !items[i].ok; save(); render(); };
@@ -292,5 +327,8 @@
 
 })();
 </script>
+</body>
+</html>
+
 </body>
 </html>
